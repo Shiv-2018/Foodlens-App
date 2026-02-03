@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { FoodResult } from "../types/food";
 import { extractJSONFromText } from "../utils/foodParser";
 
-const FOOD_ANALYSIS_PROMPT = `Analyze this food image and return ONLY a JSON object:
+const FOOD_ANALYSIS_PROMPT = `Analyze this food image and return result in per 100 gram and return ONLY a JSON object:
 {
   "name": "Dish Name",
   "cuisine": "Cuisine",
