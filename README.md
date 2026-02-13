@@ -104,6 +104,8 @@ npx expo start
 
 #### Scan the QR code with Expo Go to launch.
 
+---
+
 ## 👥 Team
 
 | Member | Role | Focus Areas |
@@ -115,7 +117,7 @@ npx expo start
 
 ---
 
-License MIT License © 2026 Foodlens AI
+Apache License Version 2.0 © 2026 Foodlens AI
 
 Foodlens AI — Smart. Accurate. Effortless.
 
