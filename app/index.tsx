@@ -1,69 +1,48 @@
 import { useRouter } from "expo-router";
-import { LogOut, User as UserIcon } from "lucide-react-native"; // Added AlertCircle for the icon
+import { LogOut, User as UserIcon } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
-    Modal,
-    Pressable,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    View,
+  Modal,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import type { Models } from "react-native-appwrite";
 
-// Components ... (rest of imports remain same)
-import CameraModal from "./components/CameraModal";
 import DailyProgress from "./components/DailyProgress";
-import FoodInfoCard from "./components/FoodInfoCard";
 import Footer from "./components/Footer";
-import Header from "./components/Header";
-import UploadCard from "./components/UploadCard";
 
-// Logic ...
-import { useFoodLens } from "./hooks/useFoodLens";
 import { restoreSessionUser, signOut } from "./services/authService";
-import { getDailySummary, logMeal } from "./services/logService";
-import { palette, spacing } from "./theme"; // 2. Ensure radii is imported
+import { getDailySummary } from "./services/logService";
+import { palette, spacing } from "./theme";
 import { UserPrefs } from "./types/user";
 import { getGoalLabel } from "./utils/nutrition";
 
 export default function Index() {
   const router = useRouter();
+
   const [currentUser, setCurrentUser] = useState<Models.User<UserPrefs> | null>(
     null,
   );
+
   const [dailyStats, setDailyStats] = useState({
     calories: 0,
     protein: 0,
     carbs: 0,
     fat: 0,
   });
+
   const [refreshing, setRefreshing] = useState(false);
-
-  // 3. Added State for the Logout Modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-
-  const {
-    imageUri,
-    canAnalyze,
-    loading,
-    result,
-    cameraOpen,
-    pickFromGallery,
-    openCamera,
-    identifyFood,
-    handleImageCaptured,
-    closeCamera,
-  } = useFoodLens(apiKey);
 
   useEffect(() => {
     let active = true;
+
     (async () => {
       try {
         const user = await restoreSessionUser();
@@ -75,6 +54,7 @@ export default function Index() {
         console.log("Error fetching initial data", e);
       }
     })();
+
     return () => {
       active = false;
     };
@@ -91,33 +71,24 @@ export default function Index() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+
     if (currentUser) {
       await Promise.all([
         restoreSessionUser().then(setCurrentUser),
         fetchDailyStats(currentUser.$id),
       ]);
     }
+
     setRefreshing(false);
   }, [currentUser]);
 
-  const handleLogMeal = async (servings: number) => {
-    if (!currentUser || !result || "error" in result) return;
-    try {
-      await logMeal(currentUser.$id, result, servings, imageUri || undefined);
-      await fetchDailyStats(currentUser.$id);
-      Alert.alert("Success", "Meal logged to your daily summary.");
-    } catch (error: any) {
-      Alert.alert("Error", "Could not log meal. Please try again.");
-    }
-  };
-
-  // 4. Updated Sign Out Logic to handle the confirmation
   const confirmSignOut = async () => {
     setShowLogoutModal(false);
     await signOut();
   };
 
   if (!currentUser) return null;
+
   const displayGoal = getGoalLabel(
     currentUser.prefs?.fitnessGoal,
   ).toUpperCase();
@@ -125,6 +96,7 @@ export default function Index() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
+
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -136,6 +108,7 @@ export default function Index() {
           />
         }
       >
+        {/* ===== TOP BAR ===== */}
         <View style={styles.topBar}>
           <Pressable
             style={styles.userSection}
@@ -152,7 +125,6 @@ export default function Index() {
             </View>
           </Pressable>
 
-          {/* Trigger Modal instead of direct logout */}
           <Pressable
             style={styles.signOutIconButton}
             onPress={() => setShowLogoutModal(true)}
@@ -160,7 +132,7 @@ export default function Index() {
             <LogOut size={22} color={palette.textSecondary} />
           </Pressable>
         </View>
-
+        {/* ===== DAILY PROGRESS ===== */}
         <DailyProgress
           current={dailyStats}
           goal={{
@@ -168,26 +140,13 @@ export default function Index() {
             type: currentUser.prefs?.fitnessGoal || "maintenance",
           }}
         />
-
-        <Header />
-
-        <View style={styles.mainContent}>
-          <UploadCard
-            imageUri={imageUri}
-            canAnalyze={canAnalyze}
-            loading={loading}
-            onPickFromGallery={pickFromGallery}
-            onOpenCamera={openCamera}
-            onIdentify={identifyFood}
-          />
-
-          <FoodInfoCard result={result} onLogMeal={handleLogMeal} />
-        </View>
-
+        {/* ===== HEADER SECTION ===== */}
+        {/* <Header /> */}
+        <Text style={styles.simple}>Implement AI Planner here.</Text>
         <Footer />
       </ScrollView>
 
-      {/* 5. ADDED THEMED LOGOUT POP-UP */}
+      {/* ===== LOGOUT MODAL ===== */}
       <Modal
         transparent
         visible={showLogoutModal}
@@ -223,23 +182,23 @@ export default function Index() {
           </View>
         </View>
       </Modal>
-
-      <CameraModal
-        visible={cameraOpen}
-        onRequestClose={closeCamera}
-        onCaptured={handleImageCaptured}
-      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  simple: {
+    color: "white",
+  },
   safe: {
     flex: 1,
     backgroundColor: palette.background,
     paddingVertical: spacing.xxxl,
   },
-  container: { paddingHorizontal: spacing.xl, paddingBottom: 40 },
+  container: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: 40,
+  },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -247,7 +206,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     marginBottom: spacing.md,
   },
-  userSection: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  userSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
   avatarCircle: {
     width: 44,
     height: 44,
@@ -258,7 +221,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(37, 99, 235, 0.2)",
   },
-  greeting: { color: palette.textPrimary, fontWeight: "900", fontSize: 20 },
+  greeting: {
+    color: palette.textPrimary,
+    fontWeight: "900",
+    fontSize: 20,
+  },
   statusLabel: {
     color: palette.primary,
     fontSize: 12,
@@ -272,9 +239,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
   },
-  mainContent: { gap: spacing.xxl, marginBottom: spacing.xxxl },
 
-  // 6. Added Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -285,7 +250,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: "90%",
     backgroundColor: palette.surface,
-    borderRadius: 24, // Matches radii.xl if you had it, or use 24
+    borderRadius: 24,
     padding: spacing.xxxl,
     alignItems: "center",
     borderWidth: 1,
@@ -322,7 +287,7 @@ const styles = StyleSheet.create({
   modalBtn: {
     flex: 1,
     height: 56,
-    borderRadius: 16, // Matches radii.lg
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
