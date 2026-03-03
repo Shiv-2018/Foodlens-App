@@ -5,9 +5,21 @@ export type FitnessGoal = "weight_loss" | "weight_gain" | "endurance" | "muscle_
 
 // Define the shape of the Appwrite Preferences
 export type UserPrefs = {
-    dailyCalorieGoal?: string; // Stored as string for easier input handling
+    dailyCalorieGoal?: string;
     fitnessGoal?: FitnessGoal;
     isOnboarded?: boolean;
+
+    // NEW: Onboarding Data
+    gender?: string;
+    goalType?: string;
+    activityLevel?: string;
+    age?: string;
+    height?: string;
+    weight?: string;
+    targetWeight?: string;
+    speed?: string;
+    medical?: string;
+    bmi?: string;
 };
 
 // Helper type for the User object containing these specific prefs
