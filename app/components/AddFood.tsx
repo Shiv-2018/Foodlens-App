@@ -1,13 +1,13 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import type { Models } from "react-native-appwrite";
 
@@ -21,7 +21,11 @@ import { logMeal } from "../services/logService";
 import { palette, spacing } from "../theme";
 import { UserPrefs } from "../types/user";
 
-export default function AddFood() {
+type AddFoodProps = {
+  onLogSuccess?: () => void;
+};
+
+export default function AddFood({ onLogSuccess }: AddFoodProps) {
   const router = useRouter();
 
   const [currentUser, setCurrentUser] = useState<Models.User<UserPrefs> | null>(
@@ -61,10 +65,14 @@ export default function AddFood() {
     try {
       await logMeal(currentUser.$id, result, servings, imageUri || undefined);
 
-      Alert.alert("Success", "Meal added to your diary.");
-
-      // Navigate back to home so Daily Target refreshes
-      router.replace("/");
+      // 3. Instead of (or in addition to) router.replace, call the callback
+      if (onLogSuccess) {
+        onLogSuccess();
+      } else {
+        // Fallback for standalone use
+        Alert.alert("Success", "Meal added to your diary.");
+        router.replace("/");
+      }
     } catch (error) {
       Alert.alert("Error", "Could not log meal. Please try again.");
     }

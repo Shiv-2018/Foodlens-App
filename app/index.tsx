@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import { LogOut, User as UserIcon } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -15,10 +14,10 @@ import {
 } from "react-native";
 import type { Models } from "react-native-appwrite";
 
-import { BottomNav, TabType } from "./components/BottomNav"; // Ensure this is created
-import DailyProgress from "./components/DailyProgress";
-
 import AddFood from "./components/AddFood";
+import { BottomNav, TabType } from "./components/BottomNav";
+import DailyProgress from "./components/DailyProgress";
+import { HomeView } from "./components/HomeDashboard";
 import { restoreSessionUser, signOut } from "./services/authService";
 import { getDailySummary } from "./services/logService";
 import { palette, spacing } from "./theme";
@@ -40,7 +39,7 @@ export default function Index() {
     carbs: 0,
     fat: 0,
   });
-
+  const [dailyLogs, setDailyLogs] = useState<any[]>([]); // New state for timeline
   const [refreshing, setRefreshing] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -64,13 +63,23 @@ export default function Index() {
 
   const fetchDailyStats = async (userId: string) => {
     try {
-      const summary = await getDailySummary(userId);
-      setDailyStats(summary);
+      // Casting to any to fix the "Property does not exist" error in your screenshot
+      const summary = (await getDailySummary(userId)) as any;
+
+      // Mapping based on your DEBUG log: data is in .logs
+      const logs = summary.logs || [];
+      setDailyLogs(logs);
+
+      setDailyStats({
+        calories: summary.calories || 0,
+        protein: summary.protein || 0,
+        carbs: summary.carbs || 0,
+        fat: summary.fat || 0,
+      });
     } catch (e) {
-      console.log("Failed to fetch stats", e);
+      console.error("Failed to fetch stats", e);
     }
   };
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (currentUser) {
@@ -85,6 +94,7 @@ export default function Index() {
   const confirmSignOut = async () => {
     setShowLogoutModal(false);
     await signOut();
+    router.replace("/auth/signin");
   };
 
   if (!currentUser) return null;
@@ -93,7 +103,6 @@ export default function Index() {
     currentUser.prefs?.fitnessGoal,
   ).toUpperCase();
 
-  // --- RENDER LOGIC FOR TABS ---
   const renderTabContent = () => {
     switch (activeTab) {
       case "Home":
@@ -109,7 +118,7 @@ export default function Index() {
               />
             }
           >
-            {/* ===== TOP BAR ===== */}
+            {/* ===== TOP BAR (RESTORED) ===== */}
             <View style={styles.topBar}>
               <Pressable
                 style={styles.userSection}
@@ -134,7 +143,7 @@ export default function Index() {
               </Pressable>
             </View>
 
-            {/* ===== DAILY PROGRESS ===== */}
+            {/* ===== DAILY PROGRESS (RESTORED) ===== */}
             <DailyProgress
               current={dailyStats}
               goal={{
@@ -142,26 +151,36 @@ export default function Index() {
                 type: currentUser.prefs?.fitnessGoal || "maintenance",
               }}
             />
+
             <Text style={styles.simple}>Implement AI Planner here.</Text>
+
+            {/* ===== HOME VIEW (NOW INCLUDES LOGS) ===== */}
+            <HomeView
+              currentUser={currentUser}
+              dailyStats={dailyStats}
+              dailyLogs={dailyLogs} // Populate this from summary.entries
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              setActiveTab={setActiveTab}
+            />
           </ScrollView>
-        );
-      case "Track":
-        return (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>Track Screen</Text>
-          </View>
         );
       case "Lens":
         return (
           <View style={styles.placeholder}>
-            {/* <Text style={styles.placeholderText}>AI Lens Screen</Text> */}
-            <AddFood />
+            <AddFood
+              onLogSuccess={() => {
+                if (currentUser) fetchDailyStats(currentUser.$id);
+                setActiveTab("Home");
+              }}
+            />
           </View>
         );
+      case "Track":
       case "Diet":
         return (
           <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>Diet Screen</Text>
+            <Text style={styles.placeholderText}>{activeTab} Screen</Text>
           </View>
         );
       default:
@@ -172,69 +191,23 @@ export default function Index() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-
-      {/* Main Content Area */}
       <View style={{ flex: 1 }}>{renderTabContent()}</View>
-
-      {/* Persistent Bottom Navigation */}
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* ===== LOGOUT MODAL ===== */}
-      <Modal
-        transparent
-        visible={showLogoutModal}
-        animationType="fade"
-        onRequestClose={() => setShowLogoutModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconContainer}>
-              <LogOut size={28} color={palette.primary} />
-            </View>
-            <Text style={styles.modalTitle}>Confirm Logout</Text>
-            <Text style={styles.modalSubtitle}>
-              Are you sure you want to sign out?
-            </Text>
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalBtn, styles.modalBtnCancel]}
-                onPress={() => setShowLogoutModal(false)}
-              >
-                <Text style={styles.modalBtnCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalBtn, styles.modalBtnConfirm]}
-                onPress={confirmSignOut}
-              >
-                <Text style={styles.modalBtnConfirmText}>Logout</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Logout Modal (Code omitted for brevity, keep your existing Modal code) */}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
+  safe: { flex: 1, backgroundColor: palette.background },
   scrollContainer: {
     paddingHorizontal: spacing.xl,
     paddingTop: Platform.OS === "android" ? spacing.xxl : spacing.md,
-    paddingBottom: 120, // Extra space so content isn't hidden by BottomNav
+    paddingBottom: 120,
   },
-  placeholder: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderText: {
-    color: palette.textSecondary,
-    fontSize: 18,
-  },
+  placeholder: { flex: 1, justifyContent: "center", alignItems: "center" },
+  placeholderText: { color: palette.textSecondary, fontSize: 18 },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -242,8 +215,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     marginBottom: spacing.md,
   },
-  // ... Keep all your existing avatarCircle, greeting, modal styles below ...
-  simple: { color: "white", marginTop: 20 },
+  simple: { color: "white", marginTop: 20, marginBottom: 10 },
   userSection: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   avatarCircle: {
     width: 44,
@@ -269,64 +241,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: spacing.xl,
-  },
-  modalContent: {
-    width: "90%",
-    backgroundColor: palette.surface,
-    borderRadius: 24,
-    padding: spacing.xxxl,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  modalIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: palette.surfaceAlt,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: spacing.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: palette.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  modalSubtitle: {
-    fontSize: 15,
-    color: palette.textSecondary,
-    textAlign: "center",
-    marginBottom: spacing.xxl,
-    lineHeight: 22,
-  },
-  modalActions: { flexDirection: "row", gap: spacing.md },
-  modalBtn: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalBtnCancel: {
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  modalBtnConfirm: { backgroundColor: palette.primary },
-  modalBtnCancelText: {
-    color: palette.textSecondary,
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  modalBtnConfirmText: { color: "#FFF", fontWeight: "800", fontSize: 16 },
 });
