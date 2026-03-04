@@ -3,6 +3,7 @@ import { LogOut, User as UserIcon } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   SafeAreaView,
@@ -14,9 +15,10 @@ import {
 } from "react-native";
 import type { Models } from "react-native-appwrite";
 
+import { BottomNav, TabType } from "./components/BottomNav"; // Ensure this is created
 import DailyProgress from "./components/DailyProgress";
-import Footer from "./components/Footer";
 
+import AddFood from "./components/AddFood";
 import { restoreSessionUser, signOut } from "./services/authService";
 import { getDailySummary } from "./services/logService";
 import { palette, spacing } from "./theme";
@@ -26,10 +28,12 @@ import { getGoalLabel } from "./utils/nutrition";
 export default function Index() {
   const router = useRouter();
 
+  // Navigation State
+  const [activeTab, setActiveTab] = useState<TabType>("Home");
+
   const [currentUser, setCurrentUser] = useState<Models.User<UserPrefs> | null>(
     null,
   );
-
   const [dailyStats, setDailyStats] = useState({
     calories: 0,
     protein: 0,
@@ -42,7 +46,6 @@ export default function Index() {
 
   useEffect(() => {
     let active = true;
-
     (async () => {
       try {
         const user = await restoreSessionUser();
@@ -54,7 +57,6 @@ export default function Index() {
         console.log("Error fetching initial data", e);
       }
     })();
-
     return () => {
       active = false;
     };
@@ -71,14 +73,12 @@ export default function Index() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-
     if (currentUser) {
       await Promise.all([
         restoreSessionUser().then(setCurrentUser),
         fetchDailyStats(currentUser.$id),
       ]);
     }
-
     setRefreshing(false);
   }, [currentUser]);
 
@@ -93,58 +93,91 @@ export default function Index() {
     currentUser.prefs?.fitnessGoal,
   ).toUpperCase();
 
+  // --- RENDER LOGIC FOR TABS ---
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "Home":
+        return (
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={palette.primary}
+              />
+            }
+          >
+            {/* ===== TOP BAR ===== */}
+            <View style={styles.topBar}>
+              <Pressable
+                style={styles.userSection}
+                onPress={() => router.push("/profile")}
+              >
+                <View style={styles.avatarCircle}>
+                  <UserIcon size={20} color={palette.primary} />
+                </View>
+                <View>
+                  <Text style={styles.greeting}>
+                    Hello, {currentUser.name.split(" ")[0]}
+                  </Text>
+                  <Text style={styles.statusLabel}>{displayGoal}</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.signOutIconButton}
+                onPress={() => setShowLogoutModal(true)}
+              >
+                <LogOut size={22} color={palette.textSecondary} />
+              </Pressable>
+            </View>
+
+            {/* ===== DAILY PROGRESS ===== */}
+            <DailyProgress
+              current={dailyStats}
+              goal={{
+                calories: currentUser.prefs?.dailyCalorieGoal || "2000",
+                type: currentUser.prefs?.fitnessGoal || "maintenance",
+              }}
+            />
+            <Text style={styles.simple}>Implement AI Planner here.</Text>
+          </ScrollView>
+        );
+      case "Track":
+        return (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>Track Screen</Text>
+          </View>
+        );
+      case "Lens":
+        return (
+          <View style={styles.placeholder}>
+            {/* <Text style={styles.placeholderText}>AI Lens Screen</Text> */}
+            <AddFood />
+          </View>
+        );
+      case "Diet":
+        return (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>Diet Screen</Text>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
 
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={palette.primary}
-          />
-        }
-      >
-        {/* ===== TOP BAR ===== */}
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.userSection}
-            onPress={() => router.push("/profile")}
-          >
-            <View style={styles.avatarCircle}>
-              <UserIcon size={20} color={palette.primary} />
-            </View>
-            <View>
-              <Text style={styles.greeting}>
-                Hello, {currentUser.name.split(" ")[0]}
-              </Text>
-              <Text style={styles.statusLabel}>{displayGoal}</Text>
-            </View>
-          </Pressable>
+      {/* Main Content Area */}
+      <View style={{ flex: 1 }}>{renderTabContent()}</View>
 
-          <Pressable
-            style={styles.signOutIconButton}
-            onPress={() => setShowLogoutModal(true)}
-          >
-            <LogOut size={22} color={palette.textSecondary} />
-          </Pressable>
-        </View>
-        {/* ===== DAILY PROGRESS ===== */}
-        <DailyProgress
-          current={dailyStats}
-          goal={{
-            calories: currentUser.prefs?.dailyCalorieGoal || "2000",
-            type: currentUser.prefs?.fitnessGoal || "maintenance",
-          }}
-        />
-        {/* ===== HEADER SECTION ===== */}
-        {/* <Header /> */}
-        <Text style={styles.simple}>Implement AI Planner here.</Text>
-        <Footer />
-      </ScrollView>
+      {/* Persistent Bottom Navigation */}
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* ===== LOGOUT MODAL ===== */}
       <Modal
@@ -158,12 +191,10 @@ export default function Index() {
             <View style={styles.modalIconContainer}>
               <LogOut size={28} color={palette.primary} />
             </View>
-
             <Text style={styles.modalTitle}>Confirm Logout</Text>
             <Text style={styles.modalSubtitle}>
               Are you sure you want to sign out?
             </Text>
-
             <View style={styles.modalActions}>
               <Pressable
                 style={[styles.modalBtn, styles.modalBtnCancel]}
@@ -171,7 +202,6 @@ export default function Index() {
               >
                 <Text style={styles.modalBtnCancelText}>Cancel</Text>
               </Pressable>
-
               <Pressable
                 style={[styles.modalBtn, styles.modalBtnConfirm]}
                 onPress={confirmSignOut}
@@ -187,30 +217,34 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  simple: {
-    color: "white",
-  },
   safe: {
     flex: 1,
     backgroundColor: palette.background,
-    paddingVertical: spacing.xxxl,
   },
-  container: {
+  scrollContainer: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: 40,
+    paddingTop: Platform.OS === "android" ? spacing.xxl : spacing.md,
+    paddingBottom: 120, // Extra space so content isn't hidden by BottomNav
+  },
+  placeholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderText: {
+    color: palette.textSecondary,
+    fontSize: 18,
   },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing.xxl,
+    paddingVertical: spacing.lg,
     marginBottom: spacing.md,
   },
-  userSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
+  // ... Keep all your existing avatarCircle, greeting, modal styles below ...
+  simple: { color: "white", marginTop: 20 },
+  userSection: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   avatarCircle: {
     width: 44,
     height: 44,
@@ -221,11 +255,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(37, 99, 235, 0.2)",
   },
-  greeting: {
-    color: palette.textPrimary,
-    fontWeight: "900",
-    fontSize: 20,
-  },
+  greeting: { color: palette.textPrimary, fontWeight: "900", fontSize: 20 },
   statusLabel: {
     color: palette.primary,
     fontSize: 12,
@@ -239,7 +269,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -280,10 +309,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxl,
     lineHeight: 22,
   },
-  modalActions: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
+  modalActions: { flexDirection: "row", gap: spacing.md },
   modalBtn: {
     flex: 1,
     height: 56,
@@ -296,17 +322,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
   },
-  modalBtnConfirm: {
-    backgroundColor: palette.primary,
-  },
+  modalBtnConfirm: { backgroundColor: palette.primary },
   modalBtnCancelText: {
     color: palette.textSecondary,
     fontWeight: "700",
     fontSize: 16,
   },
-  modalBtnConfirmText: {
-    color: "#FFF",
-    fontWeight: "800",
-    fontSize: 16,
-  },
+  modalBtnConfirmText: { color: "#FFF", fontWeight: "800", fontSize: 16 },
 });
