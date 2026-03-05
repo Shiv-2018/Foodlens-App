@@ -62,15 +62,15 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
     borderTopWidth: 1,
     borderTopColor: palette.border,
-    paddingBottom: Platform.OS === "ios" ? 30 : 15, // Better safe area handling
+    paddingBottom: Platform.OS === "ios" ? 30 : 30, //Better safe area handling
     paddingTop: 12,
     justifyContent: "space-around",
     alignItems: "center",
     position: "absolute",
     bottom: 0,
     width: "100%",
-    zIndex: 1000,
-    elevation: 5,
+    zIndex: 500,
+    elevation: 10,
   },
   tabItem: {
     alignItems: "center",

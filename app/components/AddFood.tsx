@@ -1,7 +1,9 @@
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -18,7 +20,7 @@ import UploadCard from "../components/UploadCard";
 import { useFoodLens } from "../hooks/useFoodLens";
 import { restoreSessionUser } from "../services/authService";
 import { logMeal } from "../services/logService";
-import { palette, spacing } from "../theme";
+import { palette } from "../theme";
 import { UserPrefs } from "../types/user";
 
 type AddFoodProps = {
@@ -27,7 +29,6 @@ type AddFoodProps = {
 
 export default function AddFood({ onLogSuccess }: AddFoodProps) {
   const router = useRouter();
-
   const [currentUser, setCurrentUser] = useState<Models.User<UserPrefs> | null>(
     null,
   );
@@ -47,7 +48,7 @@ export default function AddFood({ onLogSuccess }: AddFoodProps) {
     closeCamera,
   } = useFoodLens(apiKey);
 
-  // Restore logged-in user
+  // Restore user session
   useEffect(() => {
     (async () => {
       try {
@@ -59,17 +60,23 @@ export default function AddFood({ onLogSuccess }: AddFoodProps) {
     })();
   }, []);
 
+  // NAVIGATION LOGIC: Go back to previous screen
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/"); // Fallback to Home if there is no history
+    }
+  };
+
   const handleLogMeal = async (servings: number) => {
     if (!currentUser || !result || "error" in result) return;
 
     try {
       await logMeal(currentUser.$id, result, servings, imageUri || undefined);
-
-      // 3. Instead of (or in addition to) router.replace, call the callback
       if (onLogSuccess) {
         onLogSuccess();
       } else {
-        // Fallback for standalone use
         Alert.alert("Success", "Meal added to your diary.");
         router.replace("/");
       }
@@ -82,19 +89,42 @@ export default function AddFood({ onLogSuccess }: AddFoodProps) {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
 
+      {/* TOP NAVIGATION BAR */}
+      <View style={styles.navBar}>
+        <Pressable
+          style={styles.backButton}
+          onPress={handleBack} // Logic attached here
+          hitSlop={15}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        </Pressable>
+
+        <View style={styles.brandContainer}>
+          <MaterialCommunityIcons
+            name="molecule"
+            size={24}
+            color={palette.primary}
+          />
+          <Text style={styles.brandText}>
+            FoodLens <Text style={{ color: "#FFF" }}>AI</Text>
+          </Text>
+        </View>
+
+        {/* Placeholder to keep brand centered or balanced */}
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* ===== FOODLENS AI HEADER ===== */}
         <View style={styles.headerSection}>
-          <Text style={styles.title}>FoodLens AI</Text>
+          <Text style={styles.title}>Analyze Meal</Text>
           <Text style={styles.subtitle}>
-            Upload a meal image to analyze its nutritional breakdown.
+            Upload or capture your meal to see a complete nutritional breakdown.
           </Text>
         </View>
 
-        {/* ===== MAIN CONTENT ===== */}
         <View style={styles.mainContent}>
           <UploadCard
             imageUri={imageUri}
@@ -121,29 +151,60 @@ export default function AddFood({ onLogSuccess }: AddFoodProps) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: palette.background,
-    paddingVertical: spacing.xxxl,
+    backgroundColor: "#0F172A",
+  },
+  navBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    //ddingBottom: 15,
+  },
+  brandContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  brandText: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: palette.primary,
+    letterSpacing: -0.5,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    //borderRadius: 12, // Slightly more squared for a modern look
+    //backgroundColor: "#1E293B",
+    justifyContent: "center",
+    alignItems: "center",
+    //borderWidth: 1,
+    //borderColor: "#334155",
   },
   container: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingBottom: 60,
+    //ddingTop: 10,
   },
   headerSection: {
-    marginBottom: spacing.xxxl,
+    marginTop: 20,
+    marginBottom: 30,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "900",
-    color: palette.textPrimary,
-    marginBottom: spacing.sm,
+    color: "#FFF",
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 15,
-    color: palette.textSecondary,
+    color: "#94A3B8",
     lineHeight: 22,
   },
   mainContent: {
-    gap: spacing.xxl,
-    marginBottom: spacing.xxxl,
+    gap: 24,
+    marginBottom: 20,
   },
 });
