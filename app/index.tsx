@@ -26,7 +26,7 @@ import {
   getDailyMetricsSummary,
   getDailySummary,
   getWeeklyMealLogs,
-  MealLog,
+  getWeeklyMetrics
 } from "./services/logService";
 import { palette } from "./theme";
 import { UserPrefs } from "./types/user";
@@ -56,19 +56,24 @@ export default function Index() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [weeklyLogs, setWeeklyLogs] = useState<MealLog[]>([]);
+  const [weeklyLogs, setWeeklyLogs] = useState<any[]>([]);
   const [isTrackLoading, setIsTrackLoading] = useState(false);
 
   const fetchTrackData = async () => {
     if (!currentUser) return;
-    setIsTrackLoading(true); // Start loading
+    setIsTrackLoading(true);
     try {
-      const logs = await getWeeklyMealLogs(currentUser.$id);
-      setWeeklyLogs(logs);
+      const [meals, metrics] = await Promise.all([
+        getWeeklyMealLogs(currentUser.$id),
+        getWeeklyMetrics(currentUser.$id),
+      ]);
+
+      // This combination now works because weeklyLogs is any[]
+      setWeeklyLogs([...meals, ...metrics]);
     } catch (error) {
-      console.error("Failed to fetch weekly trends", error);
+      console.error("Track fetch failed:", error);
     } finally {
-      setIsTrackLoading(false); // Stop loading
+      setIsTrackLoading(false);
     }
   };
 

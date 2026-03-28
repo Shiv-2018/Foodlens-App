@@ -2,18 +2,17 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LineChart } from "react-native-chart-kit";
-import { MealLog } from "../services/logService";
 import { palette } from "../theme";
 
 const { width } = Dimensions.get("window");
 
 type TrackScreenProps = {
-  allLogs: MealLog[];
+  allLogs: any[];
 };
 
 export default function TrackScreen({ allLogs = [] }: TrackScreenProps) {
-  // 1. Process Data into 7-day buckets
-  const { chartData, weeklyTotals } = useMemo(() => {
+  const chartData = useMemo(() => {
+    // 1. Generate last 7 days skeleton
     const days = [...Array(7)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
@@ -25,50 +24,78 @@ export default function TrackScreen({ allLogs = [] }: TrackScreenProps) {
         protein: 0,
         carbs: 0,
         fat: 0,
+        water: 0,
+        sleep: 0,
+        burnt: 0,
       };
     });
 
-    let totalCals = 0;
+    // 2. Map through combined logs (Meals + Metrics)
     allLogs.forEach((log: any) => {
+      // Use $createdAt for Appwrite timestamps
       const logDate = (log.date || log.$createdAt || "").split("T")[0];
       const day = days.find((d) => d.dateStr === logDate);
+
       if (day) {
-        day.calories += Number(log.calories) || 0;
-        day.protein += Number(log.protein) || 0;
-        day.carbs += Number(log.carbs) || 0;
-        day.fat += Number(log.fat) || 0;
-        totalCals += Number(log.calories) || 0;
+        if (log.metricType) {
+          // Logic for Metrics from HomeView
+          const value = Number(log.value) || 0;
+          switch (log.metricType) {
+            case "water":
+              day.water += value;
+              break;
+            case "sleep":
+              day.sleep += value;
+              break;
+            case "workout":
+              // For workouts, 'value' is already the calorie burn
+              day.burnt += value;
+              break;
+            case "steps":
+              // 0.04 kcal per step as per your Dashboard logic
+              day.burnt += value * 0.04;
+              break;
+          }
+        } else {
+          // Logic for Meal Logs
+          day.calories += Number(log.calories) || 0;
+          day.protein += Number(log.protein) || 0;
+          day.carbs += Number(log.carbs) || 0;
+          day.fat += Number(log.fat) || 0;
+        }
       }
     });
 
-    return { chartData: days, weeklyTotals: { totalCals } };
+    return days;
   }, [allLogs]);
 
   const commonChartConfig = (color: string) => ({
     backgroundColor: "#1E293B",
     backgroundGradientFrom: "#1E293B",
     backgroundGradientTo: "#1E293B",
-    decimalPlaces: 0,
+    decimalPlaces: 1,
     color: (opacity = 1) => color,
     labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
-    propsForDots: { r: "5", strokeWidth: "2", stroke: color },
+    propsForDots: { r: "4", strokeWidth: "2", stroke: color },
     propsForBackgroundLines: { stroke: "#334155", strokeDasharray: "" },
     fillShadowGradientFrom: color,
     fillShadowGradientTo: color,
-    fillShadowGradientFromOpacity: 0.35,
+    fillShadowGradientFromOpacity: 0.3,
     fillShadowGradientToOpacity: 0,
-    useShadowColorFromDataset: false,
   });
 
   const renderChartCard = (
     title: string,
-    key: "calories" | "protein" | "carbs" | "fat",
+    key: keyof (typeof chartData)[0],
     color: string,
     icon: string,
     unit: string,
   ) => {
-    const dataPoints = chartData.map((d) => d[key]);
-    const avg = Math.round(dataPoints.reduce((a, b) => a + b, 0) / 7);
+    const dataPoints = chartData.map((d: any) => Number(d[key]) || 0);
+    const hasData = dataPoints.some((v) => v > 0);
+    const avg = (dataPoints.reduce((a, b) => a + b, 0) / 7).toFixed(
+      hasData ? 1 : 0,
+    );
 
     return (
       <View style={styles.card}>
@@ -82,12 +109,10 @@ export default function TrackScreen({ allLogs = [] }: TrackScreenProps) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle}>{title}</Text>
-            <Text style={styles.cardSubtitle}>Past 7 days</Text>
-          </View>
-          <View style={styles.avgBadge}>
-            <Text style={[styles.avgText, { color }]}>
-              {avg}
-              {unit} avg
+            <Text style={styles.cardSubtitle}>
+              {hasData
+                ? `Weekly Avg: ${avg}${unit}`
+                : "No data recorded this week"}
             </Text>
           </View>
         </View>
@@ -99,8 +124,8 @@ export default function TrackScreen({ allLogs = [] }: TrackScreenProps) {
               { data: dataPoints, color: () => color, strokeWidth: 3 },
             ],
           }}
-          width={width - 40}
-          height={180}
+          width={width - 50}
+          height={160}
           chartConfig={commonChartConfig(color)}
           bezier
           fromZero
@@ -115,40 +140,38 @@ export default function TrackScreen({ allLogs = [] }: TrackScreenProps) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header Section */}
-      <View style={styles.headerSection}>
-        <Text style={styles.headerTitle}>
-          Progress <Text style={{ color: palette.primary }}>Analytics</Text>
-        </Text>
-        <Text style={styles.headerSub}>
-          Tracking your journey over the last week
-        </Text>
-      </View>
+      <Text style={styles.header}>
+        Health <Text style={{ color: palette.primary }}>Insights</Text>
+      </Text>
 
-      {/* Summary Highlight */}
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Weekly Energy</Text>
-          <Text style={styles.summaryValue}>
-            {weeklyTotals.totalCals}{" "}
-            <Text style={styles.summaryUnit}>kcal</Text>
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.summaryItem,
-            { borderLeftWidth: 1, borderColor: "#334155" },
-          ]}
-        >
-          <Text style={styles.summaryLabel}>Logs Found</Text>
-          <Text style={styles.summaryValue}>
-            {allLogs.length} <Text style={styles.summaryUnit}>entries</Text>
-          </Text>
-        </View>
-      </View>
+      {/* Fitness Section */}
+      <Text style={styles.sectionHeader}>Activity & Lifestyle</Text>
+      {renderChartCard(
+        "Calories Burnt",
+        "burnt",
+        "#F59E0B",
+        "fire-circle",
+        " kcal",
+      )}
+      {renderChartCard("Water Intake", "water", "#3B82F6", "water", " L")}
+      {renderChartCard(
+        "Sleep Duration",
+        "sleep",
+        "#8B5CF6",
+        "weather-night",
+        " hrs",
+      )}
 
-      {/* Charts */}
-      {renderChartCard("Calories", "calories", palette.primary, "fire", "kcal")}
+      {/* Nutrition Section */}
+      <View style={styles.divider} />
+      <Text style={styles.sectionHeader}>Nutrition Trends</Text>
+      {renderChartCard(
+        "Calories Eaten",
+        "calories",
+        palette.primary,
+        "food-apple",
+        " kcal",
+      )}
       {renderChartCard("Protein", "protein", "#10B981", "food-drumstick", "g")}
       {renderChartCard("Carbs", "carbs", "#3B82F6", "bread-slice", "g")}
       {renderChartCard("Fats", "fat", "#F59E0B", "opacity", "g")}
@@ -159,32 +182,16 @@ export default function TrackScreen({ allLogs = [] }: TrackScreenProps) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
   content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 120 },
-  headerSection: { marginBottom: 25 },
-  headerTitle: { fontSize: 32, fontWeight: "900", color: "#FFF" },
-  headerSub: { color: "#94A3B8", fontSize: 14, marginTop: 4 },
-  summaryRow: {
-    flexDirection: "row",
-    backgroundColor: "#1E293B",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  summaryItem: { flex: 1, paddingHorizontal: 10 },
-  summaryLabel: {
+  header: { fontSize: 32, fontWeight: "900", color: "#FFF", marginBottom: 25 },
+  sectionHeader: {
+    fontSize: 18,
+    fontWeight: "700",
     color: "#94A3B8",
-    fontSize: 12,
-    fontWeight: "600",
+    marginBottom: 15,
     textTransform: "uppercase",
+    letterSpacing: 1,
   },
-  summaryValue: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  summaryUnit: { fontSize: 12, fontWeight: "400", color: "#64748B" },
+  divider: { height: 1, backgroundColor: "#334155", marginVertical: 30 },
   card: {
     backgroundColor: "#1E293B",
     borderRadius: 24,
@@ -192,39 +199,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "#334155",
-    // Shadow for iOS/Android
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 10,
     gap: 12,
   },
   iconBox: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   cardTitle: { color: "#FFF", fontSize: 18, fontWeight: "700" },
-  cardSubtitle: { color: "#94A3B8", fontSize: 12 },
-  avgBadge: {
-    backgroundColor: "#0F172A",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  avgText: { fontSize: 12, fontWeight: "700" },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-    marginLeft: -15,
-    paddingRight: 40,
-  },
+  cardSubtitle: { color: "#64748B", fontSize: 13, marginTop: 2 },
+  chart: { marginVertical: 8, borderRadius: 16, marginLeft: -15 },
 });

@@ -158,3 +158,26 @@ export async function getWeeklyMealLogs(userId: string) {
 
   return response.documents as unknown as MealLog[];
 }
+
+export async function getWeeklyMetrics(userId: string) {
+  const today = new Date();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(today.getDate() - 7);
+
+  const response = await databases.listDocuments(
+    DB_ID,
+    METRICS_COL_ID, // Ensure you use your Metrics Collection ID here
+    [
+      Query.equal("userId", userId),
+      // Filtering by the same 7-day date string format
+      Query.greaterThanEqual(
+        "$createdAt",
+        sevenDaysAgo.toISOString().split("T")[0],
+      ),
+      Query.orderAsc("$createdAt"),
+      Query.limit(100), // Added to ensure you don't miss logs in a busy week
+    ],
+  );
+
+  return response.documents;
+}
