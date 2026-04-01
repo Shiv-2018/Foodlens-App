@@ -19,6 +19,7 @@ import type { Models } from "react-native-appwrite";
 import AddFood from "./components/AddFood";
 import { BottomNav, TabType } from "./components/BottomNav";
 import DailyProgress from "./components/DailyProgress";
+import DietPlanner from "./components/Diet";
 import { HomeView } from "./components/HomeDashboard";
 import TrackScreen from "./components/Track";
 import { restoreSessionUser, signOut } from "./services/authService";
@@ -26,7 +27,7 @@ import {
   getDailyMetricsSummary,
   getDailySummary,
   getWeeklyMealLogs,
-  getWeeklyMetrics
+  getWeeklyMetrics,
 } from "./services/logService";
 import { palette } from "./theme";
 import { UserPrefs } from "./types/user";
@@ -249,10 +250,22 @@ export default function Index() {
             )}
           </View>
         );
-      default:
+      case "Diet":
+        // Cast your prefs so TypeScript understands the fields
+        const prefs = currentUser?.prefs as UserPrefs;
+
         return (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>{activeTab} Screen</Text>
+          <View style={{ flex: 1, backgroundColor: "#0F172A" }}>
+            <DietPlanner
+              apiKey={process.env.EXPO_PUBLIC_GEMINI_API_KEY}
+              userStats={{
+                weight: prefs?.weight || "70",
+                height: prefs?.height || "175",
+                goal: prefs?.goalType || "maintenance",
+                age: prefs?.age || "25",
+                gender: prefs?.gender || "Male",
+              }}
+            />
           </View>
         );
     }

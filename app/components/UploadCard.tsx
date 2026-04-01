@@ -1,11 +1,11 @@
 import { Image } from "expo-image";
 import { Camera, Image as ImageIcon, Sparkles } from "lucide-react-native";
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { palette, radii, spacing } from "../theme";
 
@@ -85,7 +85,7 @@ export default function UploadCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: palette.surface,
+    backgroundColor: "#1E293B",
     borderRadius: radii.lg,
     padding: spacing.xl,
     borderWidth: 1,

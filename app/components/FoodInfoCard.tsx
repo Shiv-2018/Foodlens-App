@@ -1,12 +1,12 @@
 import { Check, Info, Plus, Utensils } from "lucide-react-native";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { palette, radii, spacing } from "../theme";
 import { ResultState } from "../types/food";
@@ -127,7 +127,7 @@ export default function FoodInfoCard({ result, onLogMeal }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: palette.surface,
+    backgroundColor: "#1E293B",
     borderRadius: radii.lg,
     padding: spacing.xl,
     borderWidth: 1,
